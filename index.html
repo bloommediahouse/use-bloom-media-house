@@ -246,10 +246,16 @@ section{position:relative}
 .glow h2{font-family:var(--serif);font-size:clamp(48px,7vw,104px);line-height:.95;margin:22px 0 18px}
 .glow h2 em{color:var(--pink)}
 .glow p{opacity:.85;line-height:1.6;max-width:520px;margin:0 auto}
-.form{margin:36px auto 0;display:flex;gap:10px;max-width:520px;background:rgba(249,248,238,.12);border:1px solid rgba(249,248,238,.35);border-radius:999px;padding:6px;backdrop-filter:blur(8px)}
-.form input{flex:1;background:transparent;border:none;outline:none;color:var(--cream);font:inherit;padding:0 16px;min-width:0}
+.form{margin:36px auto 0;max-width:560px;display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left}
+.form input{width:100%;background:rgba(249,248,238,.12);border:1px solid rgba(249,248,238,.35);border-radius:999px;outline:none;color:var(--cream);font:inherit;padding:14px 20px;backdrop-filter:blur(8px);transition:border-color .25s,background .25s}
+.form input:focus{border-color:var(--pink);background:rgba(249,248,238,.18)}
 .form input::placeholder{color:rgba(249,248,238,.6)}
-.form .pill{background:var(--pink);border-color:var(--pink);color:var(--ink)}
+.form .row{grid-column:1/-1;display:flex;gap:10px}
+.form .row input{flex:1;min-width:0}
+.form .pill{background:var(--pink);border-color:var(--pink);color:var(--ink);white-space:nowrap}
+.form .pill[disabled]{opacity:.6;cursor:wait}
+.form .hp{display:none}
+@media (max-width:560px){.form{grid-template-columns:1fr}.form .row{flex-direction:column}}
 .form-msg{margin-top:14px;font-size:14px;min-height:20px;color:var(--yellow)}
 .glow .float{position:absolute;width:120px;height:120px;z-index:1}
 .glow .float.f1{left:7%;top:18%}
@@ -474,8 +480,13 @@ footer{background:var(--cream);padding:70px 24px 30px;overflow:hidden}
     <h2 class="rv">Ready to <em>bloom</em><br>online?</h2>
     <p class="rv">Leave your email and we’ll reach out to book a free 15-minute call. No pressure, just a friendly chat about your business.</p>
     <form class="form" id="form">
-      <input type="email" required placeholder="you@yourbusiness.com" aria-label="Email address">
-      <button class="pill hov" type="submit"><span class="dot"></span>Book my call</button>
+      <input type="text" name="name" required placeholder="Your name" aria-label="Your name" autocomplete="name">
+      <input type="text" name="business" placeholder="Business name" aria-label="Business name" autocomplete="organization">
+      <input type="checkbox" name="botcheck" class="hp" tabindex="-1" autocomplete="off">
+      <div class="row">
+        <input type="email" name="email" required placeholder="you@yourbusiness.com" aria-label="Email address" autocomplete="email">
+        <button class="pill hov" type="submit" id="formBtn"><span class="dot"></span>Book my call</button>
+      </div>
     </form>
     <div class="form-msg" id="formMsg"></div>
   </div>
@@ -661,7 +672,29 @@ footer{background:var(--cream);padding:70px 24px 30px;overflow:hidden}
   /* ---------- form (preview only) ---------- */
   document.getElementById('form').addEventListener('submit', e => {
     e.preventDefault();
-    document.getElementById('formMsg').textContent = 'Thanks! This form is a preview and isn’t connected yet, so nothing was sent.';
+    const form = e.target, msg = document.getElementById('formMsg'), btn = document.getElementById('formBtn');
+    const d = Object.fromEntries(new FormData(form));
+    if (d.botcheck) return;
+    btn.disabled = true; msg.textContent = 'Sending…';
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        access_key: 'b0dba21b-1dac-4a93-a50c-e58dcba527e2',
+        subject: 'New call request: ' + (d.business || d.name),
+        from_name: 'Bloom Media House website',
+        name: d.name, business: d.business || '—', email: d.email,
+        replyto: d.email
+      })
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success) throw new Error(res.message);
+        form.reset();
+        msg.textContent = 'Thanks, ' + d.name.split(' ')[0] + '! We got your message and will reach out soon ✿';
+      })
+      .catch(() => { msg.textContent = 'Something went wrong. Please try again in a moment.'; })
+      .finally(() => { btn.disabled = false; });
   });
 })();
 </script>
